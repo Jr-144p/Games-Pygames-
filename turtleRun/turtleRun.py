@@ -1,0 +1,173 @@
+import turtle
+import random
+
+# Função para desenhar uma tabela
+def desenhar_tabela(tartarugas_disponiveis, tartarugas_escolhidas):
+    tabela.clear()  # Limpa a tabela antes de redesenhar
+    tabela.penup()
+    tabela.goto(-400, 250)  # Posição inicial da tabela
+
+    # Tabela de Cores Disponíveis
+    if tartarugas_disponiveis:  # Apenas desenha se houver cores disponíveis
+        tabela.write("Cores Disponíveis:", align="left", font=("Arial", 14, "bold"))
+        tabela.goto(-400, 220)
+        for i, cor in enumerate(tartarugas_disponiveis):
+            tabela.goto(-400, 220 - (i + 1) * 20)
+            tabela.write(f"{i + 1}: {cor}", align="left", font=("Arial", 12, "normal"))
+
+    # Tabela de Cores Escolhidas
+    tabela.goto(100, 250)  # Posição inicial da tabela de escolhidas
+    tabela.write("Cores Escolhidas:", align="left", font=("Arial", 14, "bold"))
+    tabela.goto(100, 220)
+    
+    for i, (jogador, cor) in enumerate(tartarugas_escolhidas.items()):
+        tabela.goto(100, 220 - (i + 1) * 20)
+        tabela.write(f"{jogador}: {cor}", align="left", font=("Arial", 12, "normal"))
+
+# Configuração da tela
+tela = turtle.Screen()
+tela.title("🏁 Corrida de Tartarugas 🐢")
+tela.bgcolor("lightgreen")
+tela.setup(width=900, height=600)
+
+# Configurações da pista
+linha_chegada_x = 350
+largura_pista = 800
+altura_pista = 500
+margem = 20
+altura_raia = altura_pista // 6  # 6 tartarugas
+
+# Cores das tartarugas
+cores = ["red", "blue", "green", "purple", "orange", "black"]
+
+# Desenhar pista
+pista = turtle.Turtle()
+pista.hideturtle()
+pista.speed(0)
+
+# Margens verdes
+pista.penup()
+pista.goto(-largura_pista//2, -altura_pista//2 - margem)
+pista.pendown()
+pista.fillcolor("darkgreen")
+pista.begin_fill()
+for _ in range(2):
+    pista.forward(largura_pista)
+    pista.left(90)
+    pista.forward(altura_pista + 2*margem)
+    pista.left(90)
+pista.end_fill()
+
+# Raias (cor de terra)
+for i in range(6):
+    y = -altura_pista//2 + i*altura_raia
+    pista.penup()
+    pista.goto(-largura_pista//2, y)
+    pista.pendown()
+    pista.fillcolor("sienna")
+    pista.begin_fill()
+    for _ in range(2):
+        pista.forward(largura_pista)
+        pista.left(90)
+        pista.forward(altura_raia)
+        pista.left(90)
+    pista.end_fill()
+
+# Linha de chegada quadriculada
+tamanho_quadrado = 20
+linha_chegada = turtle.Turtle()
+linha_chegada.hideturtle()
+linha_chegada.speed(0)
+linha_chegada.penup()
+
+y_inicial = -altura_pista//2
+num_quadrados = altura_pista // tamanho_quadrado
+
+for i in range(num_quadrados):
+    linha_chegada.goto(linha_chegada_x, y_inicial + i * tamanho_quadrado)
+    linha_chegada.fillcolor("black" if i % 2 == 0 else "white")
+    linha_chegada.begin_fill()
+    for _ in range(4):
+        linha_chegada.forward(tamanho_quadrado)
+        linha_chegada.left(90)
+    linha_chegada.end_fill()
+
+# Seleção do número de apostadores
+num_apostadores = int(tela.numinput("Apostadores", "Quantos apostadores? (1-6)", minval=1, maxval=6))
+
+# Guardar apostas
+apostas = {}
+tartarugas_escolhidas = {}
+
+# Tabela para exibição
+tabela = turtle.Turtle()
+tabela.hideturtle()
+tabela.speed(0)
+
+# Exibir opções de tartarugas
+print("Tartarugas disponíveis:")
+for i, cor in enumerate(cores):
+    print(f"{i + 1}: {cor}")
+
+for i in range(num_apostadores):
+    # Seleção de cor usando números
+    cor = None
+    while cor is None:
+        # Atualiza a lista de cores disponíveis
+        cores_disponiveis = [c for c in cores if c not in tartarugas_escolhidas.values()]
+        
+        # Exibir as cores disponíveis com numeração atualizada
+        desenhar_tabela(cores_disponiveis, tartarugas_escolhidas)
+        
+        escolha = tela.numinput(f"Apostador {i + 1}", 
+                                 f"Escolha uma cor (1-{len(cores_disponiveis)}):", minval=1, maxval=len(cores_disponiveis))
+        if escolha is not None:
+            cor = cores_disponiveis[int(escolha) - 1]  # Escolhe a cor correspondente ao número
+            if cor in tartarugas_escolhidas.values():
+                turtle.textinput("Erro", f"A tartaruga {cor} já foi escolhida! Escolha outra.")
+                cor = None
+    apostas[f"Apostador {i + 1}"] = cor
+    tartarugas_escolhidas[f"Apostador {i + 1}"] = cor
+
+# Desenhar tabelas de cores escolhidas e remover a tabela de disponíveis
+desenhar_tabela([], tartarugas_escolhidas)
+
+# Criar tartarugas competidoras
+tartarugas = []
+posicoes_y = [-altura_pista//2 + altura_raia//2 + i*altura_raia for i in range(6)]
+
+for i, cor in enumerate(cores):
+    tartaruga = turtle.Turtle()
+    tartaruga.shape("turtle")
+    tartaruga.color(cor)
+    tartaruga.penup()
+    tartaruga.goto(-largura_pista//2, posicoes_y[i])
+    tartarugas.append(tartaruga)
+
+# Início da corrida
+corrida = True
+while corrida:
+    for tartaruga in tartarugas:
+        tartaruga.forward(random.randint(1, 10))
+        if tartaruga.xcor() >= linha_chegada_x:
+            corrida = False
+            vencedora = tartaruga.pencolor()
+            break
+
+# Resultado
+mensagem = turtle.Turtle()
+mensagem.hideturtle()
+mensagem.penup()
+mensagem.goto(0, altura_pista//2 + 30)
+
+# Verificar vencedores
+vencedores = [nome for nome, cor in apostas.items() if cor == vencedora]
+
+if vencedores:
+    texto = f"🎉 A tartaruga {vencedora} ganhou!\nVencedores: {', '.join(vencedores)}"
+else:
+    texto = f"😢 A tartaruga {vencedora} ganhou!\nNinguém apostou nela!"
+
+mensagem.write(texto, align="center", font=("Arial", 18, "bold"))
+
+tela.mainloop()

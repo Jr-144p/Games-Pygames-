@@ -1,0 +1,172 @@
+import pygame
+import random
+import os
+
+pygame.init()
+
+WIDTH = 650
+HEIGHT = 700
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Flappy Bird")
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GREEN = (0, 150, 0)
+FONT = pygame.font.SysFont("Arial", 30)
+
+try:
+    bird_img = pygame.image.load("bird.png").convert_alpha()
+    bg_img = pygame.image.load("background.png").convert()
+except pygame.error as e:
+    print(f"Erro ao carregar imagem: {e}")
+    print("Certifique-se de que 'bird.png' e 'background.png' estão no mesmo diretório.")
+    bird_img = pygame.Surface((50, 50), pygame.SRCALPHA)
+    pygame.draw.circle(bird_img, (255, 255, 0), (25, 25), 25)
+    bg_img = pygame.Surface((WIDTH, HEIGHT)).convert()
+    bg_img.fill((135, 206, 235))
+
+bird_img = pygame.transform.scale(bird_img, (50, 50))
+bg_img = pygame.transform.scale(bg_img, (WIDTH, HEIGHT))
+
+passaro_x = 100
+passaro_y = HEIGHT // 2
+gravity = 1.0
+jump = -12
+vel_passaro = 0
+
+CANO_W = 70
+ESPACO_CANO = 160
+pipe_speed = 5
+canos = []
+
+ground_y = HEIGHT
+
+pipe_hitbox_padding = 12
+bird_hitbox_inflate = (-12, -12)
+
+velocidade_maxima = 10
+pontos_para_aumentar = 5
+spawn_threshold = 350
+
+clock = pygame.time.Clock()
+
+def draw_background_sprites():
+    screen.blit(bg_img, (0, 0))
+
+def draw_bird(x, y):
+    rect = bird_img.get_rect(center=(x, y))
+    screen.blit(bird_img, rect)
+
+def draw_pipes(canos):
+    for x, h in canos:
+        top_rect = pygame.Rect(x, 0, CANO_W, h)
+        pygame.draw.rect(screen, GREEN, top_rect)
+        
+        bottom_rect = pygame.Rect(x, h + ESPACO_CANO, CANO_W, HEIGHT - (h + ESPACO_CANO))
+        pygame.draw.rect(screen, GREEN, bottom_rect)
+
+def start_screen():
+    draw_background_sprites()
+    txt = FONT.render("Pressione ESPAÇO para começar", True, WHITE)
+    screen.blit(txt, (WIDTH // 2 - txt.get_width() // 2, HEIGHT // 2 - 20))
+    pygame.display.update()
+
+def game_over_screen(score):
+    t1 = FONT.render("Game Over!", True, BLACK)
+    t2 = FONT.render(f"Sua pontuação: {score}", True, BLACK)
+    t3 = FONT.render("Pressione ESPAÇO para jogar novamente", True, BLACK)
+    
+    s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    s.fill((255, 255, 255, 128))
+    screen.blit(s, (0, 0))
+
+    screen.blit(t1, (WIDTH//2 - t1.get_width()//2, HEIGHT//2 - 60))
+    screen.blit(t2, (WIDTH//2 - t2.get_width()//2, HEIGHT//2 - 20))
+    screen.blit(t3, (WIDTH//2 - t3.get_width()//2, HEIGHT//2 + 20))
+    pygame.display.update()
+
+def jogo():
+    global passaro_y, vel_passaro, canos, pipe_speed
+
+    rodando = True
+    iniciado = False
+
+    while rodando:
+        passaro_y = HEIGHT // 2
+        vel_passaro = 0
+        canos = [[WIDTH + 50, random.randint(100, 400)]]
+        pontos = 0
+        pipe_speed = 5
+        
+        while True:
+            for evento in pygame.event.get():
+                if evento.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+                if evento.type == pygame.KEYDOWN and evento.key == pygame.K_SPACE:
+                    if not iniciado:
+                        iniciado = True
+                    else:
+                        vel_passaro = jump
+                        
+            if not iniciado:
+                start_screen()
+                clock.tick(30)
+                continue
+
+            vel_passaro += gravity
+            passaro_y += vel_passaro
+
+            for cano in canos:
+                cano[0] -= pipe_speed
+            
+            if not canos or canos[-1][0] < spawn_threshold:
+                canos.append([WIDTH, random.randint(100, 400)])
+            
+            if canos and canos[0][0] < -CANO_W:
+                canos.pop(0)
+                pontos += 1
+                if pontos > 0 and pontos % pontos_para_aumentar == 0:
+                    pipe_speed = min(pipe_speed + 1, velocidade_maxima)
+
+            draw_background_sprites()
+            draw_pipes(canos)
+            draw_bird(passaro_x, passaro_y)
+
+            txt = FONT.render(f"Pontos: {pontos}", True, WHITE)
+            screen.blit(txt, (10, 10))
+
+            bird_rect = bird_img.get_rect(center=(passaro_x, passaro_y))
+            bird_hitbox = bird_rect.inflate(*bird_hitbox_inflate)
+            colisao = False
+
+            if bird_hitbox.top <= 0:
+                colisao = True
+            
+            if bird_hitbox.bottom >= ground_y:
+                passaro_y = ground_y - bird_hitbox.height // 2 - (bird_rect.height - bird_hitbox.height)//2
+                colisao = True
+            
+            for x, h in canos:
+                top_hit = pygame.Rect(x, 0, CANO_W, h).inflate(-pipe_hitbox_padding, 0)
+                bottom_hit = pygame.Rect(x, h + ESPACO_CANO, CANO_W, HEIGHT - (h + ESPACO_CANO)).inflate(-pipe_hitbox_padding, 0)
+                if bird_hitbox.colliderect(top_hit) or bird_hitbox.colliderect(bottom_hit):
+                    colisao = True
+                    break
+
+            if colisao:
+                game_over_screen(pontos)
+                esperando = True
+                while esperando:
+                    for e in pygame.event.get():
+                        if e.type == pygame.QUIT:
+                            pygame.quit()
+                            return
+                        if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
+                            esperando = False
+                break
+
+            pygame.display.update()
+            clock.tick(30)
+
+jogo()                        

@@ -1,0 +1,212 @@
+import pygame
+import random
+
+# Inicializa pygame
+pygame.init()
+
+# Dimensões do jogo
+largura_tela = 300
+altura_tela = 600
+tamanho_celula = 30
+colunas = largura_tela // tamanho_celula
+linhas = altura_tela // tamanho_celula
+
+# Cores
+PRETO = (0, 0, 0)
+CINZA = (128, 128, 128)
+CORES = [
+    (0, 255, 255),  # I
+    (0, 0, 255),    # J
+    (255, 165, 0),  # L
+    (255, 255, 0),  # O
+    (0, 255, 0),    # S
+    (128, 0, 128),  # T
+    (255, 0, 0)     # Z
+]
+
+# Formatos das peças
+PECAS = [
+    [[1, 1, 1, 1]],  # I
+    [[1, 0, 0],
+     [1, 1, 1]],     # J
+    [[0, 0, 1],
+     [1, 1, 1]],     # L
+    [[1, 1],
+     [1, 1]],        # O
+    [[0, 1, 1],
+     [1, 1, 0]],     # S
+    [[0, 1, 0],
+     [1, 1, 1]],     # T
+    [[1, 1, 0],
+     [0, 1, 1]]      # Z
+]
+
+def iniciar_jogo():
+    global tabuleiro, peca_atual, queda_velocidade, ultima_queda, rodando, pecas_fixas, pontos
+    # Tabuleiro
+    tabuleiro = [[0 for _ in range(colunas)] for _ in range(linhas)]
+    peca_atual = Peca()
+    queda_velocidade = 500  # ms
+    ultima_queda = pygame.time.get_ticks()
+    rodando = True
+    pecas_fixas = 0  # Contador de peças fixadas
+    pontos = 0  # Contador de pontos
+
+# Tela
+tela = pygame.display.set_mode((largura_tela, altura_tela))
+pygame.display.set_caption("Tetris")
+
+class Peca:
+    def __init__(self):
+        self.forma = random.choice(PECAS)
+        self.cor = random.choice(CORES)
+        self.x = colunas // 2 - len(self.forma[0]) // 2
+        self.y = 0
+
+    def rotacionar(self):
+        self.forma = [list(row) for row in zip(*self.forma[::-1])]
+        if self.colisao(self.x, self.y):
+            self.forma = [list(row) for row in zip(*self.forma)][::-1]
+
+    def colisao(self, x, y):
+        for i, linha in enumerate(self.forma):
+            for j, valor in enumerate(linha):
+                if valor:
+                    nx, ny = x + j, y + i
+                    if nx < 0 or nx >= colunas or ny >= linhas:
+                        return True
+                    if ny >= 0 and tabuleiro[ny][nx]:
+                        return True
+        return False
+
+    def fixar(self):
+        for i, linha in enumerate(self.forma):
+            for j, valor in enumerate(linha):
+                if valor:
+                    tabuleiro[self.y + i][self.x + j] = self.cor
+
+def limpar_linhas():
+    global tabuleiro
+    linhas_removidas = 0
+    tabuleiro = [linha for linha in tabuleiro if any(v == 0 for v in linha)]
+    while len(tabuleiro) < linhas:
+        tabuleiro.insert(0, [0 for _ in range(colunas)])
+        linhas_removidas += 1
+    return linhas_removidas  # Retorna o número de linhas removidas
+
+def desenhar_tabuleiro():
+    tela.fill(PRETO)
+    for y in range(linhas):
+        for x in range(colunas):
+            if tabuleiro[y][x]:
+                pygame.draw.rect(tela, tabuleiro[y][x],
+                                 (x * tamanho_celula, y * tamanho_celula, tamanho_celula, tamanho_celula))
+    pygame.draw.rect(tela, CINZA, (0, 0, largura_tela, altura_tela), 2)
+
+def desenhar_peca(peca):
+    for i, linha in enumerate(peca.forma):
+        for j, valor in enumerate(linha):
+            if valor:
+                pygame.draw.rect(tela, peca.cor,
+                                 ((peca.x + j) * tamanho_celula,
+                                  (peca.y + i) * tamanho_celula,
+                                  tamanho_celula, tamanho_celula))
+
+def desenhar_pontuacao():
+    fonte = pygame.font.Font(None, 36)
+    texto_pontuacao = fonte.render(f'Pontuação: {pontos}', True, CINZA)
+    tela.blit(texto_pontuacao, (10, 10))  # Exibe a pontuação no topo da tela
+
+def desenhar_pecas_caiadas():
+    fonte = pygame.font.Font(None, 36)
+    texto_pecas = fonte.render(f'Peças Caídas: {pecas_fixas}', True, CINZA)
+    tela.blit(texto_pecas, (10, 50))  # Ajuste a posição vertical conforme necessário
+
+def menu_derrota():
+    global rodando
+    tela.fill(PRETO)
+    fonte = pygame.font.Font(None, 36)  # Tamanho da fonte ajustado
+    texto = fonte.render('Game Over', True, CINZA)
+    tela.blit(texto, (largura_tela // 2 - texto.get_width() // 2, altura_tela // 2 - 60))
+
+    texto_pontuacao = fonte.render(f'Pontuação: {pontos}', True, CINZA)
+    tela.blit(texto_pontuacao, (largura_tela // 2 - texto_pontuacao.get_width() // 2, altura_tela // 2))
+
+    texto_pecas = fonte.render(f'Peças Caídas: {pecas_fixas}', True, CINZA)
+    tela.blit(texto_pecas, (largura_tela // 2 - texto_pecas.get_width() // 2, altura_tela // 2 + 40))
+
+    # Opções de Reiniciar e Sair
+    texto_reiniciar = fonte.render('Pressione R para Reiniciar', True, CINZA)
+    tela.blit(texto_reiniciar, (largura_tela // 2 - texto_reiniciar.get_width() // 2, altura_tela // 2 + 100))
+
+    texto_sair = fonte.render('Pressione Q para Sair', True, CINZA)
+    tela.blit(texto_sair, (largura_tela // 2 - texto_sair.get_width() // 2, altura_tela // 2 + 130))  # Ajuste na posição
+
+    pygame.display.flip()
+
+    # Espera pela entrada do usuário
+    esperando = True
+    while esperando:
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                esperando = False
+                rodando = False
+            elif evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_r:  # Reiniciar
+                    iniciar_jogo()
+                    esperando = False
+                elif evento.key == pygame.K_q:  # Sair
+                    rodando = False
+                    esperando = False
+
+# Variáveis do jogo
+relogio = pygame.time.Clock()  # Inicializa o relógio aqui
+iniciar_jogo()
+
+# Variável para controlar a queda rápida
+cair_rapido = False
+
+while rodando:
+    tela.fill(PRETO)
+    desenhar_tabuleiro()
+    desenhar_peca(peca_atual)
+    desenhar_pontuacao()  # Exibe a pontuação
+    desenhar_pecas_caiadas()  # Exibe o número de peças caídas
+    pygame.display.flip()
+
+    for evento in pygame.event.get():
+        if evento.type == pygame.QUIT:
+            rodando = False
+        elif evento.type == pygame.KEYDOWN:
+            if evento.key == pygame.K_LEFT:
+                if not peca_atual.colisao(peca_atual.x - 1, peca_atual.y):
+                    peca_atual.x -= 1
+            elif evento.key == pygame.K_RIGHT:
+                if not peca_atual.colisao(peca_atual.x + 1, peca_atual.y):
+                    peca_atual.x += 1
+            elif evento.key == pygame.K_UP:
+                peca_atual.rotacionar()
+
+    # Verifica se a seta para baixo está sendo pressionada para queda rápida
+    cair_rapido = pygame.key.get_pressed()[pygame.K_DOWN]
+
+    # Gravidade da peça
+    agora = pygame.time.get_ticks()
+    if agora - ultima_queda > (queda_velocidade // 4 if cair_rapido else queda_velocidade):
+        if not peca_atual.colisao(peca_atual.x, peca_atual.y + 1):
+            peca_atual.y += 1
+        else:
+            peca_atual.fixar()
+            linhas_removidas = limpar_linhas()
+            pecas_fixas += 1  # Incrementa o contador de peças fixadas
+            pontos += linhas_removidas * 100  # Adiciona pontos com base nas linhas removidas
+            if pecas_fixas % 5 == 0:  # Aumenta a velocidade a cada 5 peças fixadas
+                queda_velocidade = max(100, queda_velocidade - 50)  # Limite de velocidade mínima
+            peca_atual = Peca()
+            if peca_atual.colisao(peca_atual.x, peca_atual.y):
+                menu_derrota()  # Exibe o menu de derrota
+        ultima_queda = agora
+
+    relogio.tick(30)
+
+pygame.quit()
